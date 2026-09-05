@@ -25,9 +25,9 @@ services:
       - INPUT_FILE=/data/input/input-0.csv
       - OUTPUT_FILE=/data/output/output-0.csv
     volumes:
-      - ../input:/data/input:ro
-      - ../output:/data/output
-
+      - ./input:/data/input:ro
+      - ./output:/data/output
+      
   client_1:
     build:
       context: ./services/client
@@ -42,8 +42,8 @@ services:
       - INPUT_FILE=/data/input/input-1.csv
       - OUTPUT_FILE=/data/output/output-1.csv
     volumes:
-      - ../input:/data/input:ro
-      - ../output:/data/output
+      - ./input:/data/input:ro
+      - ./output:/data/output
 
   client_2:
     build:
@@ -59,8 +59,8 @@ services:
       - INPUT_FILE=/data/input/input-2.csv
       - OUTPUT_FILE=/data/output/output-2.csv
     volumes:
-      - ../input:/data/input:ro
-      - ../output:/data/output
+      - ./input:/data/input:ro
+      - ./output:/data/output
 
   client_3:
     build:
@@ -76,8 +76,8 @@ services:
       - INPUT_FILE=/data/input/input-3.csv
       - OUTPUT_FILE=/data/output/output-3.csv
     volumes:
-      - ../input:/data/input:ro
-      - ../output:/data/output
+      - ./input:/data/input:ro
+      - ./output:/data/output
 
   client_4:
     build:
@@ -93,5 +93,5 @@ services:
       - INPUT_FILE=/data/input/input-4.csv
       - OUTPUT_FILE=/data/output/output-4.csv
     volumes:
-      - ../input:/data/input:ro
-      - ../output:/data/output
+      - ./input:/data/input:ro
+      - ./output:/data/output

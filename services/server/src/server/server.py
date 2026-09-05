@@ -1,8 +1,10 @@
 import socket
+import tempfile
+
 import logger
 import safe_socket
-
-_ECHO_SERVER_MESSAGE_SIZE = 1024
+import protocol
+from lottery.lottery import Lottery
 
 
 class Server:
@@ -12,27 +14,37 @@ class Server:
 
     def _handle_client(self, client_socket):
         action = "handle-client"
-        message_amount = 0
         try:
             logger.info(action, logger.LogResult.in_progress)
-            while True:
-                client_message = safe_socket.recv_all(
-                    client_socket, _ECHO_SERVER_MESSAGE_SIZE
-                )
-                if not client_message:
-                    logger.info(
-                        action,
-                        logger.LogResult.success,
-                        "messages-amount",
-                        message_amount,
-                    )
-                    return
-                message_amount += 1
-                safe_socket.send_all(client_socket, client_message)
+
+            with tempfile.NamedTemporaryFile() as storage:
+                lottery = Lottery(storage.name)
+
+                bets_count = 0
+                while True:
+                    try:
+                        header = safe_socket.recv_all(
+                            client_socket, protocol.LENGTH_FIELD_SIZE
+                        )
+                    except ConnectionError:
+                        break  # el cliente cerró la conexión = no hay más apuestas
+
+                    payload_length = protocol.decode_length(header)
+                    payload = safe_socket.recv_all(client_socket, payload_length)
+                    bet = protocol.decode_bet(payload)
+                    bets_count += 1
+                    lottery.store_bets([bet])
+
+                winners = [
+                    bet for bet in lottery.load_bets() if lottery.has_won(bet)
+                ]
+                for winner in winners:
+                    safe_socket.send_all(client_socket, protocol.encode_wire(winner))
+
+            logger.info(action, logger.LogResult.success, "bets-amount", bets_count)
+            client_socket.close()
         except Exception as e:
-            logger.error(
-                action, logger.LogResult.fail, "messages-amount", message_amount
-            )
+            logger.error(action, logger.LogResult.fail)
             raise e
 
     def run(self):
