@@ -29,10 +29,11 @@ def encode_bet(bet: Bet) -> bytes:
     result += _u32(bet.number)
     return bytes(result)
 
-
 def decode_bet(payload: bytes) -> Bet:
-    offset = 0
+    bet, _ = _decode_bet_at(payload, 0)
+    return bet
 
+def _decode_bet_at(payload: bytes, offset: int) -> tuple[Bet, int]:
     agency_id = _u32_from(payload[offset:offset + LENGTH_FIELD_SIZE])
     offset += LENGTH_FIELD_SIZE
 
@@ -55,6 +56,7 @@ def decode_bet(payload: bytes) -> Bet:
     offset += birth_len
 
     number = _u32_from(payload[offset:offset + LENGTH_FIELD_SIZE])
+    offset += LENGTH_FIELD_SIZE
 
     return Bet(
         agency_id=agency_id,
@@ -63,8 +65,7 @@ def decode_bet(payload: bytes) -> Bet:
         document=document,
         birthdate=birth,
         number=number,
-    )
-
+    ), offset
 
 def encode_wire(bet: Bet) -> bytes:
     payload = encode_bet(bet)
@@ -73,3 +74,12 @@ def encode_wire(bet: Bet) -> bytes:
 
 def decode_length(header: bytes) -> int:
     return _u32_from(header)
+
+def decode_batch(payload: bytes) -> list[Bet]:
+    count = _u32_from(payload[:LENGTH_FIELD_SIZE])
+    offset = LENGTH_FIELD_SIZE
+    bets = []
+    for _ in range(count):
+        bet, offset = _decode_bet_at(payload, offset)
+        bets.append(bet)
+    return bets

@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/bet"
+	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/domain"
 )
 
-func ForEach(path string, agencyId int, batchSize int, process func([]bet.Bet) error) error {
+func ForEachBatch(path string, agencyID int, batchSize int, process func([]domain.Bet) error) error {
 	file, err := os.Open(path)
 	if err != nil {
 		return err
@@ -17,9 +17,9 @@ func ForEach(path string, agencyId int, batchSize int, process func([]bet.Bet) e
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	var batch []bet.Bet
+	batch := make([]domain.Bet, 0, batchSize)
 	for scanner.Scan() {
-		b, err := parseBet(scanner.Text(), agencyId)
+		b, err := parseBet(scanner.Text(), agencyID)
 		if err != nil {
 			return err
 		}
@@ -39,18 +39,18 @@ func ForEach(path string, agencyId int, batchSize int, process func([]bet.Bet) e
 	return scanner.Err()
 }
 
-func parseBet(line string, agencyId int) (bet.Bet, error) {
+func parseBet(line string, agencyID int) (domain.Bet, error) {
 	fields := strings.Split(line, ",")
 	document, err := strconv.Atoi(fields[2])
 	if err != nil {
-		return bet.Bet{}, err
+		return domain.Bet{}, err
 	}
 	number, err := strconv.Atoi(fields[4])
 	if err != nil {
-		return bet.Bet{}, err
+		return domain.Bet{}, err
 	}
-	return bet.Bet{
-		AgencyId:      agencyId,
+	return domain.Bet{
+		AgencyID:      agencyID,
 		FirstName:     fields[0],
 		LastName:      fields[1],
 		DocumentNumber: document,

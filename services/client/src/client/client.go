@@ -1,7 +1,6 @@
 package client
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -11,23 +10,23 @@ import (
 	"strings"
 	"time"
 
-	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/bet"
+	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/domain"
 	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/input"
 	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/logger"
 	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/protocol"
 	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/safe_socket"
 )
 
-const CONNECTION_ATTEMPTS_MAX = 15
-const CONNECTION_ATTEMPS_DELAY_MS = 500
-const MESSAGE_LENGTH_BYTES = 4
+const connectionAttemptsMax = 15
+const connectionAttemptsDelay = 500 * time.Millisecond
 
 type ClientConfig struct {
 	ServerHost string
 	ServerPort string
-	AgencyId   string
+	AgencyID   string
 	InputFile  string
 	OutputFile string
+	BatchSize  string
 }
 
 type Client struct {
@@ -52,11 +51,11 @@ func connectToServer(host, port string) (net.Conn, error) {
 	var conn net.Conn
 
 	logger.Info(action, logger.InProgress)
-	for i := range CONNECTION_ATTEMPTS_MAX {
+	for i := range connectionAttemptsMax {
 		conn, err = net.Dial("tcp", host+":"+port)
 		if err != nil {
 			logger.Warn(action, logger.Fail, "attempt", i)
-			time.Sleep(CONNECTION_ATTEMPS_DELAY_MS * time.Millisecond)
+			time.Sleep(connectionAttemptsDelay)
 			continue
 		}
 
@@ -70,18 +69,29 @@ func connectToServer(host, port string) (net.Conn, error) {
 func (client *Client) Run() error {
 	defer client.conn.Close()
 
-	agencyId, err := strconv.Atoi(client.config.AgencyId)
+	agencyID, err := strconv.Atoi(client.config.AgencyID)
 	if err != nil {
 		logger.Error("parse-agency", logger.Fail, "err", err)
 		return err
 	}
 
-	err = input.ForEach(client.config.InputFile, agencyId, 1, func(batch []bet.Bet) error {
-		payload := protocol.Serialize(batch[0])
-		return safe_socket.SendAll(client.conn, buildMessage(payload))
-	})
+	batchSize, err := strconv.Atoi(client.config.BatchSize)
 	if err != nil {
-		logger.Error("send-bets", logger.Fail, "err", err, "agency-id", agencyId)
+		logger.Error("parse-batch-size", logger.Fail, "err", err)
+		return err
+	}
+
+	err = input.ForEachBatch(client.config.InputFile, agencyID, batchSize, func(batch []domain.Bet) error {
+		payload, err := protocol.EncodeBatch(batch)
+		if err != nil {
+			return err
+		}
+		message := protocol.EncodeMessage(payload)
+		return safe_socket.SendAll(client.conn, message)
+	})
+
+	if err != nil {
+		logger.Error("send-bets", logger.Fail, "err", err, "agency-id", agencyID)
 		return err
 	}
 
@@ -106,38 +116,37 @@ func (client *Client) Run() error {
 		return err
 	}
 
-	logger.Info("send-bets", logger.Success, "agency-id", agencyId, "winners-amount", len(winners))
+	logger.Info("send-bets", logger.Success, "agency-id", agencyID, "winners-amount", len(winners))
 	return nil
 }
 
-func buildMessage(payload []byte) []byte {
-	message := make([]byte, MESSAGE_LENGTH_BYTES+len(payload))
-	binary.BigEndian.PutUint32(message[:MESSAGE_LENGTH_BYTES], uint32(len(payload)))
-	copy(message[MESSAGE_LENGTH_BYTES:], payload)
-	return message
-}
-
-func (client *Client) readWinners() ([]bet.Bet, error) {
-	var winners []bet.Bet
+func (client *Client) readWinners() ([]domain.Bet, error) {
+	var winners []domain.Bet
 	for {
-		header, err := safe_socket.RecvAll(client.conn, MESSAGE_LENGTH_BYTES)
+		header, err := safe_socket.RecvAll(client.conn, protocol.MessageLengthBytes)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break
 			}
 			return nil, err
 		}
-		payloadLength := binary.BigEndian.Uint32(header)
+		payloadLength := protocol.DecodeLength(header)
 		payload, err := safe_socket.RecvAll(client.conn, int(payloadLength))
 		if err != nil {
 			return nil, err
 		}
-		winners = append(winners, protocol.Deserialize(payload))
+
+		winner, err := protocol.DecodeBet(payload)
+		if err != nil {
+			return nil, err
+		}
+		winners = append(winners, winner)
+		
 	}
 	return winners, nil
 }
 
-func buildOutput(winners []bet.Bet) string {
+func buildOutput(winners []domain.Bet) string {
 	var sb strings.Builder
 	for _, w := range winners {
 		sb.WriteString(w.FirstName + "," + w.LastName + "," + fmt.Sprintf("%d", w.DocumentNumber) + "," + w.Birthdate + "," + fmt.Sprintf("%d", w.Number) + "\n")

@@ -1,7 +1,7 @@
-package bet
+package domain
 
 type Bet struct {
-	AgencyId       int
+	AgencyID       int
 	FirstName      string
 	LastName       string
 	DocumentNumber int

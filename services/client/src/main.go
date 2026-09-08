@@ -9,8 +9,8 @@ import (
 )
 
 func loadConfig() (client.ClientConfig, error) {
-	agencyId := os.Getenv("AGENCY_ID")
-	if agencyId == "" {
+	agencyID := os.Getenv("AGENCY_ID")
+	if agencyID == "" {
 		return client.ClientConfig{}, errors.New("AGENCY_ID environment variable is required")
 	}
 
@@ -33,13 +33,19 @@ func loadConfig() (client.ClientConfig, error) {
 	if outputFile == "" {
 		return client.ClientConfig{}, errors.New("OUTPUT_FILE environment variable is required")
 	}
+
+	batchSize := os.Getenv("BATCH_SIZE")
+	if batchSize == "" {
+		return client.ClientConfig{}, errors.New("BATCH_SIZE environment variable is required")
+	}
 	
 	return client.ClientConfig{
 		ServerHost: serverHost,
 		ServerPort: serverPort,
-		AgencyId:   agencyId,
+		AgencyID:   agencyID,
 		InputFile:	inputFile,
 		OutputFile:	outputFile,
+		BatchSize:	batchSize,
 	}, nil
 }
 
@@ -60,6 +66,7 @@ func run() int {
 		logger.Error("client-run", logger.Fail, "err", err)
 		return 1
 	}
+	
 	return 0
 }
 

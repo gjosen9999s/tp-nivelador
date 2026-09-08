@@ -10,6 +10,7 @@ services:
       - PYTHONUNBUFFERED=1
       - SERVER_HOST=server
       - SERVER_PORT=5678
+      - AGENCY_QUORUM_MIN=6
 
   client_0:
     build:
@@ -22,11 +23,12 @@ services:
       - AGENCY_ID=0
       - SERVER_HOST=server
       - SERVER_PORT=5678
-      - INPUT_FILE=/data/input/input-0.csv
-      - OUTPUT_FILE=/data/output/output-0.csv
+      - INPUT_FILE=/input/input-0.csv
+      - OUTPUT_FILE=/output/output-0.csv
+      - BATCH_SIZE=1
     volumes:
-      - ./input:/data/input:ro
-      - ./output:/data/output
+      - ./input:/input:ro
+      - ./output:/output
       
   client_1:
     build:
@@ -39,11 +41,12 @@ services:
       - AGENCY_ID=1
       - SERVER_HOST=server
       - SERVER_PORT=5678
-      - INPUT_FILE=/data/input/input-1.csv
-      - OUTPUT_FILE=/data/output/output-1.csv
+      - INPUT_FILE=/input/input-1.csv
+      - OUTPUT_FILE=/output/output-1.csv
+      - BATCH_SIZE=100
     volumes:
-      - ./input:/data/input:ro
-      - ./output:/data/output
+      - ./input:/input:ro
+      - ./output:/output
 
   client_2:
     build:
@@ -56,11 +59,12 @@ services:
       - AGENCY_ID=2
       - SERVER_HOST=server
       - SERVER_PORT=5678
-      - INPUT_FILE=/data/input/input-2.csv
-      - OUTPUT_FILE=/data/output/output-2.csv
+      - INPUT_FILE=/input/input-2.csv
+      - OUTPUT_FILE=/output/output-2.csv
+      - BATCH_SIZE=222
     volumes:
-      - ./input:/data/input:ro
-      - ./output:/data/output
+      - ./input:/input:ro
+      - ./output:/output
 
   client_3:
     build:
@@ -73,11 +77,12 @@ services:
       - AGENCY_ID=3
       - SERVER_HOST=server
       - SERVER_PORT=5678
-      - INPUT_FILE=/data/input/input-3.csv
-      - OUTPUT_FILE=/data/output/output-3.csv
+      - INPUT_FILE=/input/input-3.csv
+      - OUTPUT_FILE=/output/output-3.csv
+      - BATCH_SIZE=333      
     volumes:
-      - ./input:/data/input:ro
-      - ./output:/data/output
+      - ./input:/input:ro
+      - ./output:/output
 
   client_4:
     build:
@@ -90,8 +95,27 @@ services:
       - AGENCY_ID=4
       - SERVER_HOST=server
       - SERVER_PORT=5678
-      - INPUT_FILE=/data/input/input-4.csv
-      - OUTPUT_FILE=/data/output/output-4.csv
+      - INPUT_FILE=/input/input-4.csv
+      - OUTPUT_FILE=/output/output-4.csv
+      - BATCH_SIZE=444      
     volumes:
-      - ./input:/data/input:ro
-      - ./output:/data/output
+      - ./input:/input:ro
+      - ./output:/output
+
+  client_5:
+    build:
+      context: ./services/client
+      dockerfile: Dockerfile
+    container_name: client_5
+    depends_on:
+      - server
+    environment:
+      - AGENCY_ID=5
+      - SERVER_HOST=server
+      - SERVER_PORT=5678
+      - INPUT_FILE=/input/input-5.csv
+      - OUTPUT_FILE=/output/output-5.csv
+      - BATCH_SIZE=444      
+    volumes:
+      - ./input:/input:ro
+      - ./output:/output
