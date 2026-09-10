@@ -1,3 +1,11 @@
+// Formato del mensaje:
+//
+//	mensaje:  [4 bytes: largo del payload][payload]
+//	batch:    [4: cantidad de apuestas][apuesta 1][apuesta 2]...
+//	apuesta:  [4: agency_id][1: len(first)][first][1: len(last)][last]
+//	          [4: document][1: len(birth)][birth][4: number]
+//	ACK:      [4 bytes en 0] (mensaje sin payload)
+
 package protocol
 
 import (
@@ -8,12 +16,12 @@ import (
 )
 
 const (
-	uint32Size       = 4
-	lenSize          = 1
+	uint32Size         = 4
+	lenSize            = 1
 	MessageLengthBytes = uint32Size
 )
 
-func EncodeBet(item domain.Bet) ([]byte, error){
+func EncodeBet(item domain.Bet) ([]byte, error) {
 
 	first := []byte(item.FirstName)
 	last := []byte(item.LastName)
@@ -136,4 +144,8 @@ func EncodeMessage(payload []byte) []byte {
 
 func DecodeLength(header []byte) uint32 {
 	return binary.BigEndian.Uint32(header)
+}
+
+func IsAck(header []byte) bool {
+	return DecodeLength(header) == 0
 }

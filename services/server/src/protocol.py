@@ -1,7 +1,20 @@
 from lottery.bet import Bet
 
+# Formato del mensaje:
+#
+#   mensaje:  [ 4 bytes: largo del payload ][ payload ]
+#
+#   batch:    [ 4: cantidad de apuestas ][ apuesta 1 ][ apuesta 2 ] ...
+#
+#   apuesta:  [ 4: agency_id ][ 1: len(first) ] [ first ] [ 1: len(last) ] [ last ]
+#             [ 4: document ][ 1: len(birth) ] [ birth ] [ 4: number ]
+#
+#   ACK:      header [ 4 bytes en 0 ] (mensaje sin payload)
+
+ACK = b"\x00\x00\x00\x00"  # largo 0 = mensaje sin payload (ACK de batch)
+
 LENGTH_FIELD_SIZE = 4  # uint32 BE para el largo total
-LEN_PREFIX_SIZE = 1    # uint8 BE para el largo de cada string
+LEN_PREFIX_SIZE = 1  # largo de cada string en 1 byte (uint8)
 
 
 def _u32(value: int) -> bytes:
@@ -29,33 +42,35 @@ def encode_bet(bet: Bet) -> bytes:
     result += _u32(bet.number)
     return bytes(result)
 
+
 def decode_bet(payload: bytes) -> Bet:
     bet, _ = _decode_bet_at(payload, 0)
     return bet
 
+
 def _decode_bet_at(payload: bytes, offset: int) -> tuple[Bet, int]:
-    agency_id = _u32_from(payload[offset:offset + LENGTH_FIELD_SIZE])
+    agency_id = _u32_from(payload[offset : offset + LENGTH_FIELD_SIZE])
     offset += LENGTH_FIELD_SIZE
 
     first_len = payload[offset]
     offset += LEN_PREFIX_SIZE
-    first = payload[offset:offset + first_len].decode()
+    first = payload[offset : offset + first_len].decode()
     offset += first_len
 
     last_len = payload[offset]
     offset += LEN_PREFIX_SIZE
-    last = payload[offset:offset + last_len].decode()
+    last = payload[offset : offset + last_len].decode()
     offset += last_len
 
-    document = _u32_from(payload[offset:offset + LENGTH_FIELD_SIZE])
+    document = _u32_from(payload[offset : offset + LENGTH_FIELD_SIZE])
     offset += LENGTH_FIELD_SIZE
 
     birth_len = payload[offset]
     offset += LEN_PREFIX_SIZE
-    birth = payload[offset:offset + birth_len].decode()
+    birth = payload[offset : offset + birth_len].decode()
     offset += birth_len
 
-    number = _u32_from(payload[offset:offset + LENGTH_FIELD_SIZE])
+    number = _u32_from(payload[offset : offset + LENGTH_FIELD_SIZE])
     offset += LENGTH_FIELD_SIZE
 
     return Bet(
@@ -67,7 +82,8 @@ def _decode_bet_at(payload: bytes, offset: int) -> tuple[Bet, int]:
         number=number,
     ), offset
 
-def encode_wire(bet: Bet) -> bytes:
+
+def encode_bet_message(bet: Bet) -> bytes:
     payload = encode_bet(bet)
     return _u32(len(payload)) + payload
 
@@ -75,7 +91,9 @@ def encode_wire(bet: Bet) -> bytes:
 def decode_length(header: bytes) -> int:
     return _u32_from(header)
 
+
 def decode_batch(payload: bytes) -> list[Bet]:
+    # el batch va precedido de la cantidad de apuestas
     count = _u32_from(payload[:LENGTH_FIELD_SIZE])
     offset = LENGTH_FIELD_SIZE
     bets = []

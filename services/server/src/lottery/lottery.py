@@ -1,5 +1,6 @@
 import csv
 from collections.abc import Iterator
+
 from .bet import Bet
 
 _LOTTERY_WINNER_NUMBER = 7574

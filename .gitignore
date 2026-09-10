@@ -1,4 +1,6 @@
 output/
+data/
 __pycache__/
 *.pyc
 *.old.txt
+failed_test.log

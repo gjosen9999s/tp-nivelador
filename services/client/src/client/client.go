@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -34,8 +35,8 @@ type Client struct {
 	config ClientConfig
 }
 
-func NewClient(config ClientConfig) (*Client, error) {
-	conn, err := connectToServer(config.ServerHost, config.ServerPort)
+func NewClient(ctx context.Context, config ClientConfig) (*Client, error) {
+	conn, err := connectToServer(ctx, config.ServerHost, config.ServerPort)
 	if err != nil {
 		logger.Warn("connect-to-server", logger.Fail)
 		return nil, err
@@ -45,25 +46,32 @@ func NewClient(config ClientConfig) (*Client, error) {
 	return client, nil
 }
 
-func connectToServer(host, port string) (net.Conn, error) {
+func connectToServer(ctx context.Context, host, port string) (net.Conn, error) {
 	const action = "connect-to-server"
-	var err error
-	var conn net.Conn
 
 	logger.Info(action, logger.InProgress)
 	for i := range connectionAttemptsMax {
-		conn, err = net.Dial("tcp", host+":"+port)
+		if ctx.Err() != nil {
+			logger.Warn(action, logger.Fail, "attempt", i)
+			return nil, ctx.Err()
+		}
+
+		conn, err := net.Dial("tcp", host+":"+port)
 		if err != nil {
 			logger.Warn(action, logger.Fail, "attempt", i)
-			time.Sleep(connectionAttemptsDelay)
+			select {
+			case <-time.After(connectionAttemptsDelay):
+			case <-ctx.Done(): // si llega SIGTERM, se cancela la espera y se sale inmediatamente
+				return nil, ctx.Err()
+			}
 			continue
 		}
 
 		logger.Info(action, logger.Success)
-		break
+		return conn, nil
 	}
 
-	return conn, err
+	return nil, errors.New("could not connect to server")
 }
 
 func (client *Client) Run() error {
@@ -87,7 +95,20 @@ func (client *Client) Run() error {
 			return err
 		}
 		message := protocol.EncodeMessage(payload)
-		return safe_socket.SendAll(client.conn, message)
+		err = safe_socket.SendAll(client.conn, message)
+		if err != nil {
+			return err
+		}
+
+		// espera el ACK antes de enviar el siguiente batch => siempre un solo batch en vuelo
+		ack, err := safe_socket.RecvAll(client.conn, protocol.MessageLengthBytes)
+		if err != nil {
+			return err
+		}
+		if !protocol.IsAck(ack) {
+			return fmt.Errorf("unexpected message from server (expected ack)")
+		}
+		return nil
 	})
 
 	if err != nil {
@@ -95,10 +116,8 @@ func (client *Client) Run() error {
 		return err
 	}
 
-	tcpConn, ok := client.conn.(*net.TCPConn)
-	if !ok {
-		return fmt.Errorf("connection is not TCP")
-	}
+	//se cierro solo la mitad de escritura, se sigue pudiendo recibir los ganadores
+	tcpConn := client.conn.(*net.TCPConn)
 	if err := tcpConn.CloseWrite(); err != nil {
 		logger.Error("close-write", logger.Fail, "err", err)
 		return err
@@ -125,7 +144,7 @@ func (client *Client) readWinners() ([]domain.Bet, error) {
 	for {
 		header, err := safe_socket.RecvAll(client.conn, protocol.MessageLengthBytes)
 		if err != nil {
-			if errors.Is(err, io.EOF) {
+			if errors.Is(err, io.EOF) { // el server termino de enviar ganadores
 				break
 			}
 			return nil, err
@@ -141,15 +160,21 @@ func (client *Client) readWinners() ([]domain.Bet, error) {
 			return nil, err
 		}
 		winners = append(winners, winner)
-		
+
 	}
 	return winners, nil
+}
+
+func (client *Client) Close() {
+	if client.conn != nil {
+		client.conn.Close()
+	}
 }
 
 func buildOutput(winners []domain.Bet) string {
 	var sb strings.Builder
 	for _, w := range winners {
-		sb.WriteString(w.FirstName + "," + w.LastName + "," + fmt.Sprintf("%d", w.DocumentNumber) + "," + w.Birthdate + "," + fmt.Sprintf("%d", w.Number) + "\n")
+		sb.WriteString(fmt.Sprintf("%s,%s,%d,%s,%d\n", w.FirstName, w.LastName, w.DocumentNumber, w.Birthdate, w.Number))
 	}
 	return sb.String()
 }

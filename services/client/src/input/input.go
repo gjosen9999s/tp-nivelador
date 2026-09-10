@@ -28,10 +28,10 @@ func ForEachBatch(path string, agencyID int, batchSize int, process func([]domai
 			if err := process(batch); err != nil {
 				return err
 			}
-			batch = batch[:0] // reutilizo el slice, no aloco de nuevo
+			batch = batch[:0] // reutilizo slice
 		}
 	}
-	if len(batch) > 0 {
+	if len(batch) > 0 { // ultimo batch puede quedar incompleto
 		if err := process(batch); err != nil {
 			return err
 		}
@@ -50,11 +50,11 @@ func parseBet(line string, agencyID int) (domain.Bet, error) {
 		return domain.Bet{}, err
 	}
 	return domain.Bet{
-		AgencyID:      agencyID,
-		FirstName:     fields[0],
-		LastName:      fields[1],
+		AgencyID:       agencyID,
+		FirstName:      fields[0],
+		LastName:       fields[1],
 		DocumentNumber: document,
-		Birthdate:     fields[3],
-		Number:        number,
+		Birthdate:      fields[3],
+		Number:         number,
 	}, nil
 }

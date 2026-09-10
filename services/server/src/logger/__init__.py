@@ -1,1 +1,3 @@
-from .logger import init, info, error, LogResult
+from .logger import LogResult, error, info, init
+
+__all__ = ["LogResult", "error", "info", "init"]
